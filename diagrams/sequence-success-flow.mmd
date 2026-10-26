@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    actor C as Cliente
+    participant O as Order Service
+    participant S as Saga Orchestrator
+    participant B as Message Broker
+    participant I as Inventory Service
+    participant P as Payment Service
+    participant G as Gateway Externo
+
+    C->>O: POST /orders (Idempotency-Key) [sync]
+    O->>O: Cria pedido PENDING + outbox (OrderCreated)
+    O-->>C: 202 Accepted (order_id)
+    O->>B: OrderCreated
+    B->>S: OrderCreated
+    S->>S: Cria saga (STARTED)
+    S->>B: Cmd ReserveStock(saga_id, order_id)
+    B->>I: ReserveStock
+    I->>I: Reserva estoque (tx local + inbox/outbox)
+    I->>B: StockReserved
+    B->>S: StockReserved
+    S->>S: Estado = STOCK_RESERVED
+    S->>B: Cmd ProcessPayment(saga_id, order_id, valor)
+    B->>P: ProcessPayment
+    P->>G: Autoriza pagamento (idempotency key = saga_id+step) [sync]
+    G-->>P: Aprovado
+    P->>B: PaymentApproved
+    B->>S: PaymentApproved
+    S->>S: Estado = PAYMENT_APPROVED
+    S->>B: Cmd ApproveOrder
+    B->>O: ApproveOrder
+    O->>O: Pedido = APPROVED
+    O->>B: OrderApproved
+    B->>S: OrderApproved
+    S->>S: Estado = COMPLETED

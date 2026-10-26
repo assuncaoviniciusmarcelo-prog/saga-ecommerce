@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    participant O as Order Service
+    participant S as Saga Orchestrator
+    participant B as Message Broker
+    participant I as Inventory Service
+    participant P as Payment Service
+    participant G as Gateway Externo
+
+    Note over S,I: Estoque já reservado (STOCK_RESERVED)
+    S->>B: Cmd ProcessPayment
+    B->>P: ProcessPayment
+    P->>G: Autoriza pagamento
+    G-->>P: Recusado
+    P->>B: PaymentRefused (motivo)
+    B->>S: PaymentRefused
+    S->>S: Estado = COMPENSATING
+    S->>B: Cmd ReleaseStock (compensação)
+    B->>I: ReleaseStock
+    I->>I: Libera reserva (idempotente)
+    I->>B: StockReleased
+    B->>S: StockReleased
+    S->>B: Cmd CancelOrder (motivo)
+    B->>O: CancelOrder
+    O->>O: Pedido = CANCELED
+    O->>B: OrderCanceled
+    B->>S: OrderCanceled
+    S->>S: Estado = COMPENSATED

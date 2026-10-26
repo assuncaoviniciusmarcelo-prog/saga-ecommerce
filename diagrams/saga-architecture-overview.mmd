@@ -1,0 +1,41 @@
+flowchart LR
+    C([Cliente]) -->|"POST /orders (sync) 202 Accepted"| OS
+
+    subgraph Order["Order Service"]
+        OS[API / Domínio do Pedido]
+        ODB[(Order DB + Outbox + Inbox)]
+        OS --- ODB
+    end
+
+    subgraph Orch["Saga Orchestrator"]
+        SO[Máquina de estados da Saga]
+        SDB[(saga_instance + Outbox + Inbox)]
+        SCH[Scheduler de timeouts]
+        SO --- SDB
+        SCH --- SDB
+    end
+
+    subgraph Inv["Inventory Service"]
+        IS[Estoque / Reservas]
+        IDB[(Inventory DB + Outbox + Inbox)]
+        IS --- IDB
+    end
+
+    subgraph Pay["Payment Service"]
+        PS[Pagamentos]
+        PDB[(Payment DB + Outbox + Inbox)]
+        CB{{Circuit Breaker + Retry}}
+        PS --- PDB
+        PS --- CB
+    end
+
+    BUS[[Message Broker<br/>Kafka / RabbitMQ]]
+    DLQ[[Dead-Letter Queues]]
+    GW([Gateway de Pagamento Externo])
+
+    OS <-->|eventos / comandos| BUS
+    SO <-->|comandos / respostas| BUS
+    IS <-->|comandos / eventos| BUS
+    PS <-->|comandos / eventos| BUS
+    BUS -.->|retries esgotados| DLQ
+    CB -->|"HTTPS + Idempotency-Key"| GW

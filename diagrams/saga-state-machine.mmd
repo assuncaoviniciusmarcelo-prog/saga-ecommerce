@@ -1,0 +1,13 @@
+stateDiagram-v2
+    [*] --> STARTED
+    STARTED --> STOCK_RESERVED: StockReserved
+    STARTED --> COMPENSATING: StockRejected
+    STOCK_RESERVED --> PAYMENT_APPROVED: PaymentApproved
+    STOCK_RESERVED --> COMPENSATING: PaymentRefused / timeout
+    PAYMENT_APPROVED --> COMPLETED: OrderApproved
+    PAYMENT_APPROVED --> COMPENSATING: falha ao aprovar pedido (RefundPayment)
+    COMPENSATING --> COMPENSATED: compensações concluídas
+    COMPENSATING --> FAILED: retries esgotados (intervenção manual)
+    COMPLETED --> [*]
+    COMPENSATED --> [*]
+    FAILED --> [*]
